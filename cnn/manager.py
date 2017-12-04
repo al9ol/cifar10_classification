@@ -77,7 +77,7 @@ class Manager(object):
 
         for i_epoch in range(n_epoch):
 
-            if verbose: print(f"epoch: {i_epoch}")
+            if verbose: print("epoch: %s" % i_epoch)
 
             train_acc = []
             for i_batch in range(n_batches):
@@ -96,7 +96,7 @@ class Manager(object):
 
                 if verbose and i_batch % print_train_acc_every_batch == 0:
                     batch_accuracy = self.sess.run(self.model.accuracy, self._get_feed_dict(X_batch, y_batch, 'test'))
-                    print(f"\tbatch: {i_batch}\taccuracy: {batch_accuracy}")
+                    print("\tbatch: %s \taccuracy: %s" % (i_batch, batch_accuracy))
 
             if save_model_every_epoch > 0 and i_epoch % save_model_every_epoch == 0:
                 folder = os.path.join(save_model_to_dir, str(i_epoch))
@@ -119,10 +119,10 @@ class Manager(object):
                 self.save_model(folder, "model", yaml_placeholders_fname)
 
             if verbose:
-                print(f"epoch: {i_epoch}\tbest accuracy: {best_accuracy:1.4f}\tval accuracy: {accuracy:1.4f}")
+                print("epoch: %d \tbest accuracy: %1.4f\tval accuracy: %1.4f" % (i_epoch, best_accuracy, accuracy))
 
         accuracy = self.sess.run(self.model.accuracy, self._get_feed_dict(X_test, y_test, 'test'))
-        if verbose: print(f"\n\ntest accuracy: {accuracy}")
+        if verbose: print(f"\n\ntest accuracy: %1.f5" % accuracy)
 
     def save_model(self, dir, model_fname, yaml_placeholders_fname):
 
