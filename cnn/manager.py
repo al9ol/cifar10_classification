@@ -122,7 +122,7 @@ class Manager(object):
                 print("epoch: %d \tbest accuracy: %1.4f\tval accuracy: %1.4f" % (i_epoch, best_accuracy, accuracy))
 
         accuracy = self.sess.run(self.model.accuracy, self._get_feed_dict(X_test, y_test, 'test'))
-        if verbose: print(f"\n\ntest accuracy: %1.f5" % accuracy)
+        if verbose: print("\n\ntest accuracy: %1.f5" % accuracy)
 
     def save_model(self, dir, model_fname, yaml_placeholders_fname):
 
