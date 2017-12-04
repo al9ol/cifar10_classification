@@ -62,17 +62,24 @@ class Manager(object):
               n_epoch, batch_size, verbose=True,
               yaml_placeholders_fname="placeholders.yaml",
               save_model_to_dir="saved_model", save_model_every_epoch=1,
-              best_model_dir="best", print_train_error_every_batch=100):
+              best_model_dir="best", print_train_acc_every_batch=100,
+              tensorboard_logdir="logs"):
 
         n_batches = X.shape[0] // batch_size
         indices = np.arange(X.shape[0])
 
-        best_error = 0
+        if tensorboard_logdir is not None:
+            logdir = os.path.join(save_model_to_dir, tensorboard_logdir)
+            tf_writer = tf.summary.FileWriter(logdir, self.sess.graph)
+            val_summary = tf.summary.scalar("val_accuracy", self.model.accuracy)
+
+        best_accuracy = 0
 
         for i_epoch in range(n_epoch):
 
             if verbose: print(f"epoch: {i_epoch}")
 
+            train_acc = []
             for i_batch in range(n_batches):
 
                 i_begin = i_batch * batch_size
@@ -83,29 +90,39 @@ class Manager(object):
 
                 self.sess.run(self.model.optimize, self._get_feed_dict(X_batch, y_batch, 'train'))
 
-                if verbose and i_batch % print_train_error_every_batch == 0:
+                if tensorboard_logdir is not None:
+                    batch_acc = self.sess.run(self.model.accuracy, self._get_feed_dict(X_batch, y_batch, 'test'))
+                    train_acc.append(batch_acc)
 
-                    batch_error = self.sess.run(self.model.error, self._get_feed_dict(X_batch, y_batch, 'test'))
-                    print(f"\tbatch: {i_batch}\terror: {batch_error}")
+                if verbose and i_batch % print_train_acc_every_batch == 0:
+                    batch_accuracy = self.sess.run(self.model.accuracy, self._get_feed_dict(X_batch, y_batch, 'test'))
+                    print(f"\tbatch: {i_batch}\taccuracy: {batch_accuracy}")
 
             if save_model_every_epoch > 0 and i_epoch % save_model_every_epoch == 0:
-
                 folder = os.path.join(save_model_to_dir, str(i_epoch))
                 self.save_model(folder, "model", yaml_placeholders_fname)
 
-            error = self.sess.run(self.model.error, self._get_feed_dict(X_val, y_val, 'test'))
+            if tensorboard_logdir is not None:
+                val_summ = self.sess.run(val_summary, self._get_feed_dict(X_val, y_val, 'test'))
+                tf_writer.add_summary(val_summ, i_epoch)
 
-            if i_epoch == 0 or error < best_error:
+                train_summary = tf.Summary()
+                train_summary.value.add(tag="Avg batch accuracy", simple_value=np.mean(train_acc))
+                tf_writer.add_summary(train_summary, i_epoch)
 
-                best_error = error
+            accuracy = self.sess.run(self.model.accuracy, self._get_feed_dict(X_val, y_val, 'test'))
+
+            if i_epoch == 0 or accuracy > best_accuracy:
+
+                best_accuracy = accuracy
                 folder = os.path.join(save_model_to_dir, best_model_dir)
                 self.save_model(folder, "model", yaml_placeholders_fname)
 
             if verbose:
-                print(f"epoch: {i_epoch}\tbest error: {best_error:1.4f}\tval error: {error:1.4f}")
+                print(f"epoch: {i_epoch}\tbest accuracy: {best_accuracy:1.4f}\tval accuracy: {accuracy:1.4f}")
 
-        error = self.sess.run(self.model.error, self._get_feed_dict(X_test, y_test, 'test'))
-        if verbose: print(f"\n\ntest error: {error}")
+        accuracy = self.sess.run(self.model.accuracy, self._get_feed_dict(X_test, y_test, 'test'))
+        if verbose: print(f"\n\ntest accuracy: {accuracy}")
 
     def save_model(self, dir, model_fname, yaml_placeholders_fname):
 
@@ -132,9 +149,9 @@ class Manager(object):
 
         model = amdl.AbstractModel()
 
-        setattr(model, 'prediction', graph.get_tensor_by_name('prediction/prediction_out:0'))
-        setattr(model, 'optimize', graph.get_operation_by_name('optimize/optimize_out'))
-        setattr(model, 'error', graph.get_tensor_by_name('error/error_out:0'))
+        setattr(model, 'prediction', graph.get_tensor_by_name('prediction/out:0'))
+        setattr(model, 'optimize', graph.get_operation_by_name('optimize/out'))
+        setattr(model, 'error', graph.get_tensor_by_name('accuracy/out:0'))
 
         return model
 

@@ -1,6 +1,6 @@
 from datasets import data_utils
+from datasets.sample_preprocessing import get_stratified_subsample
 import cnn
-from old import trainer_old_ok as trainer
 
 
 def train_new_net(cifar10_dir='./datasets/cifar-10-batches-py'):
@@ -17,19 +17,22 @@ def train_new_net(cifar10_dir='./datasets/cifar-10-batches-py'):
 
     params = {'input_HWC': X_train.shape[1:],
               'n_classes': 10,
-              'n_conv_layers': 2,
-              'n_affine_layers': 2, 'n_affine_neurons': 35,  # 110,
-              'filter_params': {"n": [32, 64], "strides": 1, "size": 3,
+              'n_conv_layers': 3,
+              'n_affine_layers': 2, 'n_affine_neurons': 128,
+              'filter_params': {"n": [32, 64, 128], "strides": 1, "size": 3,
                                 "padding": 'VALID'},
               'pool_params': {"strides": 1, "size": 2},
               'keep_prob': 0.7,
-              'learning_rate': 1e-3}
+              'learning_rate': 1e-4}
+
 
     manager = cnn.Manager(params_as_placeholders=['keep_prob'])
     manager.create_model(cnn.ConvReLUPoolDropAffineSoftmax, X_train.shape[1:], **params)
+
     manager.train(X_train, y_train, X_val, y_val, X_test, y_test,
                   n_epoch=100, batch_size=64, verbose=True,
-                  save_model_to_dir="saved_model", save_model_every_epoch=10)
+                  save_model_to_dir="saved_model", save_model_every_epoch=10,
+                  print_train_acc_every_batch=100)
 
     # manager_restored = cnn.Manager(params_as_placeholders=['keep_prob'])
     # manager_restored.load_model(dir="saved_model/best", model_name='model')

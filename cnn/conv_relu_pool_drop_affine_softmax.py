@@ -34,7 +34,7 @@ class ConvReLUPoolDropAffineSoftmax(object):
 
         self.prediction
         self.optimize
-        self.error
+        self.accuracy
 
     @define_scope
     def prediction(self):
@@ -45,7 +45,7 @@ class ConvReLUPoolDropAffineSoftmax(object):
         aff_out = self._add_affine_layers(conv_out, self.n_affine_layers, self.n_affine_neurons)
 
         scores = tf.identity(self._add_output_layer(aff_out, self.n_classes),
-                             name='prediction_out')
+                             name='out')
         return scores
 
     @define_scope
@@ -56,13 +56,13 @@ class ConvReLUPoolDropAffineSoftmax(object):
         mean_loss = tf.reduce_mean(total_loss)
         optimizer = tf.train.AdamOptimizer(self.learning_rate)
 
-        return optimizer.minimize(mean_loss, name='optimize_out')
+        return optimizer.minimize(mean_loss, name='out')
 
     @define_scope
-    def error(self):
+    def accuracy(self):
 
-        mistakes = tf.not_equal(self.labels, tf.argmax(self.prediction, 1))
-        return tf.reduce_mean(tf.cast(mistakes, tf.float32), name='error_out')
+        mistakes = tf.equal(self.labels, tf.argmax(self.prediction, 1))
+        return tf.reduce_mean(tf.cast(mistakes, tf.float32), name='out')
 
     def _get_and_check_filter_params(self, n_conv_layers: int, filter_params: dict):
         params = filter_params.copy()
