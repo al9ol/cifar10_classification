@@ -69,9 +69,9 @@ class ConvReLUPoolDropAffineSoftmax(object):
         for k, v in params.items():
             if k != 'padding':
                 if isinstance(v, cols.Iterable) and len(v) != n_conv_layers and len(v) > 1:
-                    raise ValueError("The length of the field %d must be equal "
-                                     "to the number of convolution layers n_conv_layers "
-                                     "or be an integer" % k)
+                    raise ValueError(f"The length of the field {k} must be equal "
+                                     f"to the number of convolution layers n_conv_layers "
+                                     f"or be an integer")
                 if not isinstance(v, cols.Iterable):
                     params[k] = n_conv_layers * [v]
         return params
@@ -81,9 +81,9 @@ class ConvReLUPoolDropAffineSoftmax(object):
         params = pool_params.copy()
         for k, v in pool_params.items():
             if isinstance(v, cols.Iterable) and len(v) != n_conv_layers and len(v) > 1:
-                raise ValueError("The length of the field %d must be equal "
-                                 "to the number of convolution layers n_conv_layers "
-                                 "or be an integer" % k)
+                raise ValueError(f"The length of the field {k} must be equal "
+                                 f"to the number of convolution layers n_conv_layers "
+                                 f"or be an integer")
             if not isinstance(v, cols.Iterable):
                 params[k] = n_conv_layers * [v]
         return params
@@ -102,18 +102,20 @@ class ConvReLUPoolDropAffineSoftmax(object):
                                                 pool_params['size'],
                                                 pool_params['strides']):
 
-            W_cur = tf.get_variable("Wconv" + str(l + 1), shape=[sz, sz, depth, n],
-                                    initializer=tf.contrib.layers.xavier_initializer_conv2d(uniform=False))
-            b_cur = tf.get_variable("bconv" + str(l + 1), shape=[n], initializer=tf.zeros_initializer)
+            with tf.name_scope("Conv_" + str(l)):
 
-            a_cur = tf.nn.conv2d(a_prev, W_cur, strides=[1, s, s, 1], padding=filter_params['padding']) + b_cur
-            h_cur = tf.nn.relu(a_cur)
+                W_cur = tf.get_variable("Wconv" + str(l + 1), shape=[sz, sz, depth, n],
+                                        initializer=tf.contrib.layers.xavier_initializer_conv2d(uniform=False))
+                b_cur = tf.get_variable("bconv" + str(l + 1), shape=[n], initializer=tf.zeros_initializer)
 
-            h_pool = tf.layers.max_pooling2d(h_cur, pool_size=pool_sz, strides=pool_s)
-            h_drop = tf.nn.dropout(h_pool, keep_prob=self.keep_prob)
+                a_cur = tf.nn.conv2d(a_prev, W_cur, strides=[1, s, s, 1], padding=filter_params['padding']) + b_cur
+                h_cur = tf.nn.relu(a_cur)
 
-            a_prev = h_drop
-            depth = n
+                h_pool = tf.layers.max_pooling2d(h_cur, pool_size=pool_sz, strides=pool_s)
+                h_drop = tf.nn.dropout(h_pool, keep_prob=self.keep_prob)
+
+                a_prev = h_drop
+                depth = n
 
         return a_prev
 
@@ -124,23 +126,27 @@ class ConvReLUPoolDropAffineSoftmax(object):
 
         for l in range(n_affine_layers):
 
-            w_cur = tf.get_variable("Waff" + str(l + 1), shape=[n_neurons, n_affine_neurons],
-                                    initializer=tf.contrib.layers.xavier_initializer(uniform=False))
-            b_cur = tf.get_variable("baff" + str(l + 1), shape=[n_affine_neurons],
-                                    initializer=tf.zeros_initializer)
+            with tf.name_scope("Dense_" + str(l)):
 
-            h = tf.matmul(a_prev, w_cur) + b_cur
-            a_cur = tf.nn.relu(h, "relu_aff" + str(l + 1))
+                w_cur = tf.get_variable("Waff" + str(l + 1), shape=[n_neurons, n_affine_neurons],
+                                        initializer=tf.contrib.layers.xavier_initializer(uniform=False))
+                b_cur = tf.get_variable("baff" + str(l + 1), shape=[n_affine_neurons],
+                                        initializer=tf.zeros_initializer)
 
-            n_neurons = n_affine_neurons
-            a_prev = a_cur
+                h = tf.matmul(a_prev, w_cur) + b_cur
+                a_cur = tf.nn.relu(h, "relu_aff" + str(l + 1))
+
+                n_neurons = n_affine_neurons
+                a_prev = a_cur
 
         return a_prev
 
     def _add_output_layer(self, affine_output, n_classes):
 
-        w = tf.get_variable("Wout", shape=[affine_output.shape[1], n_classes],
-                            initializer=tf.contrib.layers.xavier_initializer(uniform=False))
-        b = tf.get_variable("bout", shape=[n_classes], initializer=tf.zeros_initializer)
+        with tf.name_scope("Output_Dense_Layer"):
+
+            w = tf.get_variable("Wout", shape=[affine_output.shape[1], n_classes],
+                                initializer=tf.contrib.layers.xavier_initializer(uniform=False))
+            b = tf.get_variable("bout", shape=[n_classes], initializer=tf.zeros_initializer)
 
         return affine_output @ w + b
