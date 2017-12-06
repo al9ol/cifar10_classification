@@ -18,11 +18,11 @@ def train_new_net(cifar10_dir='./datasets/cifar-10-batches-py'):
     params = {'input_HWC': X_train.shape[1:],
               'n_classes': 10,
               'n_conv_layers': 3,
-              'n_affine_layers': 2, 'n_affine_neurons': 128,
+              'n_affine_layers': 1, 'n_affine_neurons': 110,
               'filter_params': {"n": [32, 64, 128], "strides": 1, "size": 3,
                                 "padding": 'VALID'},
               'pool_params': {"strides": 1, "size": 2},
-              'keep_prob': 0.7,
+              'keep_prob': 0.4,
               'learning_rate': 1e-4}
 
 
