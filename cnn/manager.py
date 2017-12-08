@@ -6,13 +6,14 @@ import yaml
 
 import tensorflow as tf
 import numpy as np
+import queue
 
 from . import abstract_model as amdl
 
 
 class Manager(object):
 
-    def __init__(self, params_as_placeholders):
+    def __init__(self, params_as_placeholders, len_accuracy_queue=5):
 
         self.placeholder_names = []
 
@@ -21,7 +22,14 @@ class Manager(object):
         else:
             self.params_as_placeholders = []
 
+        self._val_accuracy_queue = queue.Queue(len_accuracy_queue)
+
     def create_model(self, ModelClass, HWC, **model_params):
+
+        if hasattr(self, 'sess'):
+            self.sess.close()
+
+        tf.reset_default_graph()
 
         self.data = tf.placeholder(tf.float32, [None, *HWC], name='data')
         self.labels = tf.placeholder(tf.int64, [None], name='labels')
@@ -112,8 +120,18 @@ class Manager(object):
 
             accuracy = self.sess.run(self.model.accuracy, self._get_feed_dict(X_val, y_val, 'test'))
 
-            if i_epoch == 0 or accuracy > best_accuracy:
+            if self._val_accuracy_queue.full():
+                _ = self._val_accuracy_queue.get()
+                self._val_accuracy_queue.put(accuracy)
+            else:
+                self._val_accuracy_queue.put(accuracy)
 
+            if accuracy < np.mean(self._val_accuracy_queue.queue):
+                folder = os.path.join(save_model_to_dir, best_model_dir)
+                self.save_model(folder, "model", yaml_placeholders_fname)
+                break
+
+            if i_epoch == 0 or accuracy > best_accuracy:
                 best_accuracy = accuracy
                 folder = os.path.join(save_model_to_dir, best_model_dir)
                 self.save_model(folder, "model", yaml_placeholders_fname)
@@ -122,7 +140,7 @@ class Manager(object):
                 print("epoch: %d \tbest accuracy: %1.4f\tval accuracy: %1.4f" % (i_epoch, best_accuracy, accuracy))
 
         accuracy = self.sess.run(self.model.accuracy, self._get_feed_dict(X_test, y_test, 'test'))
-        if verbose: print("\n\ntest accuracy: %1.f5" % accuracy)
+        if verbose: print(f"\n\ntest accuracy: %1.5f" % accuracy)
 
     def save_model(self, dir, model_fname, yaml_placeholders_fname):
 
