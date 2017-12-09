@@ -59,7 +59,7 @@ def train_net(cifar10_dir=r'./datasets/cifar-10-batches-py',
         manager.create_model(cnn.ConvPoolDropReLUAffineDropAffineSoftmax,
                              X_train.shape[1:], **params)
 
-        manager.train(X_train[:10], y_train[:10], X_val, y_val, X_test, y_test,
+        manager.train(X_train, y_train, X_val, y_val, X_test, y_test,
                       n_epoch=170, batch_size=64, verbose=True,
                       save_model_to_dir=model_dir,
                       save_model_every_epoch=10,
