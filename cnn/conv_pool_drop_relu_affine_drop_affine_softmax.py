@@ -8,7 +8,7 @@ from .wrappers import define_scope
 # TODO: add possibility to change an optimization method
 
 
-class ConvReLUPoolDropAffineSoftmax(object):
+class ConvPoolDropReLUAffineDropAffineSoftmax(object):
 
     def __init__(self, data, labels, input_HWC: tuple,
                  n_classes: int, n_conv_layers: int,
@@ -42,7 +42,8 @@ class ConvReLUPoolDropAffineSoftmax(object):
         H, W, C = self.input_HWC
         conv_out = self._add_conv_layers(self.data, self.n_conv_layers, C,
                                          self.filter_params, self.pool_params)
-        aff_out = self._add_affine_layers(conv_out, self.n_affine_layers, self.n_affine_neurons)
+        aff_out = self._add_affine_layers(conv_out, self.n_affine_layers,
+                                          self.n_affine_neurons)
 
         scores = tf.identity(self._add_output_layer(aff_out, self.n_classes),
                              name='out')
@@ -80,11 +81,10 @@ class ConvReLUPoolDropAffineSoftmax(object):
 
         params = pool_params.copy()
         for k, v in pool_params.items():
-            if k != 'padding':
-                if isinstance(v, cols.Iterable) and len(v) != n_conv_layers and len(v) > 1:
-                    raise ValueError("The length of the field must be equal "
-                                     "to the number of convolution layers n_conv_layers "
-                                     "or be an integer" % k)
+            if isinstance(v, cols.Iterable) and len(v) != n_conv_layers and len(v) > 1:
+                raise ValueError("The length of the field must be equal "
+                                 "to the number of convolution layers n_conv_layers "
+                                 "or be an integer" % k)
             if not isinstance(v, cols.Iterable):
                 params[k] = n_conv_layers * [v]
         return params
@@ -101,23 +101,23 @@ class ConvReLUPoolDropAffineSoftmax(object):
                                                 pool_params['strides']):
 
             with tf.name_scope("ConvBlock_" + str(l)):
+
                 h_cur = tf.layers.conv2d(a_prev, filters=n, kernel_size=sz, strides=(s, s),
-                                         padding=filter_params['padding'], activation=tf.nn.relu,
+                                         padding=filter_params['padding'],
                                          kernel_initializer=tf.contrib.layers.xavier_initializer_conv2d(uniform=False))
 
-                h_pool = tf.layers.max_pooling2d(h_cur, pool_size=pool_sz, strides=pool_s,
-                                                 padding=pool_params['padding'])
-                h_drop = tf.nn.dropout(h_pool, keep_prob=self.keep_prob)
+                a_prev = tf.layers.max_pooling2d(h_cur, pool_size=pool_sz, strides=pool_s)
 
-                a_prev = h_drop
+        n_out_neurons = int(np.prod(a_prev.shape[1:]))
+        a_flatten = tf.reshape(a_prev, shape=[-1, n_out_neurons])
 
-        return a_prev
+        h_drop = tf.nn.dropout(a_flatten, keep_prob=self.keep_prob)
 
-    def _add_affine_layers(self, conv_out, n_affine_layers: int, n_affine_neurons: int):
+        return tf.nn.relu(h_drop)
 
-        n_neurons = int(np.prod(conv_out.shape[1:]))
-        a_prev = tf.reshape(conv_out, shape=[-1, n_neurons])
+    def _add_affine_layers(self, conv_out_flatten, n_affine_layers: int, n_affine_neurons: int):
 
+        a_prev = conv_out_flatten
         for l in range(n_affine_layers):
 
             with tf.name_scope("DenseBlock_" + str(l)):
@@ -125,7 +125,7 @@ class ConvReLUPoolDropAffineSoftmax(object):
                                         kernel_initializer=tf.contrib.layers.xavier_initializer(uniform=False))
                 a_prev = a_cur
 
-        return a_prev
+        return tf.nn.dropout(a_prev, keep_prob=self.keep_prob)
 
     def _add_output_layer(self, affine_output, n_classes):
 
@@ -133,4 +133,4 @@ class ConvReLUPoolDropAffineSoftmax(object):
             out = tf.layers.dense(affine_output, n_classes,
                             kernel_initializer=tf.contrib.layers.xavier_initializer(uniform=False))
 
-        return out#affine_output @ w + b
+        return out

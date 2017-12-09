@@ -126,10 +126,10 @@ class Manager(object):
             else:
                 self._val_accuracy_queue.put(accuracy)
 
-            if accuracy < np.mean(self._val_accuracy_queue.queue):
-                folder = os.path.join(save_model_to_dir, best_model_dir)
-                self.save_model(folder, "model", yaml_placeholders_fname)
-                break
+            # if accuracy <= 0.9 * np.mean(self._val_accuracy_queue.queue):
+            #     folder = os.path.join(save_model_to_dir, best_model_dir)
+            #     self.save_model(folder, "model", yaml_placeholders_fname)
+            #     break
 
             if i_epoch == 0 or accuracy > best_accuracy:
                 best_accuracy = accuracy

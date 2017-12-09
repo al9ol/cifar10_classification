@@ -50,15 +50,17 @@ def train_net(cifar10_dir=r'./datasets/cifar-10-batches-py',
 
         params = yaml.load(params_yaml)
         params['learning_rate'] = float(params['learning_rate'])
+        if 'keep_prob' in params.keys():
+            params['keep_prob'] = float(params['keep_prob'])
         params['input_HWC'] = X_train.shape[1:]
         params['n_classes'] = 10
 
         manager = cnn.Manager(params_as_placeholders=['keep_prob'])
-        manager.create_model(cnn.ConvReLUPoolDropAffineSoftmax,
+        manager.create_model(cnn.ConvPoolDropReLUAffineDropAffineSoftmax,
                              X_train.shape[1:], **params)
 
-        manager.train(X_train[:132], y_train[:132], X_val, y_val, X_test, y_test,
-                      n_epoch=1, batch_size=64, verbose=True,
+        manager.train(X_train[:10], y_train[:10], X_val, y_val, X_test, y_test,
+                      n_epoch=170, batch_size=64, verbose=True,
                       save_model_to_dir=model_dir,
                       save_model_every_epoch=10,
                       print_train_acc_every_batch=100)
@@ -73,9 +75,5 @@ if __name__ == "__main__":
     ap.add_argument('-cifar10_dir', dest='cifar10_dir',
                     action='store',
                     default=r'./datasets/cifar-10-batches-py')
-
-    # ap.add_argument('-params_dir', dest='params_dir',
-    #                 action='store',
-    #                 default=r'./tunable_params')
 
     train_net(**vars(ap.parse_args()))

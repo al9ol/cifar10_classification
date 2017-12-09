@@ -1,7 +1,7 @@
 n_conv_layers: 3
 n_affine_layers: 1
-n_affine_neurons: 110
-filter_params: {"n": [32, 64, 128], "strides": 1, "size": 3, "padding": 'VALID'}
-pool_params: {"strides": 1, "size": 2}
-keep_prob: 0.4
-learning_rate: 1e-4
+n_affine_neurons: 500
+filter_params: {"n": [36, 64, 128], "strides": 1, "size": 4, "padding": 'SAME'}
+pool_params: {"strides": 2, "size": 2, "padding": 'SAME'}
+keep_prob: 0.6
+learning_rate: 1e-3
