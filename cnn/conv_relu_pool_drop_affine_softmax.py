@@ -69,9 +69,9 @@ class ConvReLUPoolDropAffineSoftmax(object):
         for k, v in params.items():
             if k != 'padding':
                 if isinstance(v, cols.Iterable) and len(v) != n_conv_layers and len(v) > 1:
-                    raise ValueError(f"The length of the field {k} must be equal "
-                                     f"to the number of convolution layers n_conv_layers "
-                                     f"or be an integer")
+                    raise ValueError("The length of the field %d must be equal "
+                                     "to the number of convolution layers n_conv_layers "
+                                     "or be an integer" % k)
                 if not isinstance(v, cols.Iterable):
                     params[k] = n_conv_layers * [v]
         return params
@@ -81,9 +81,9 @@ class ConvReLUPoolDropAffineSoftmax(object):
         params = pool_params.copy()
         for k, v in pool_params.items():
             if isinstance(v, cols.Iterable) and len(v) != n_conv_layers and len(v) > 1:
-                raise ValueError(f"The length of the field {k} must be equal "
-                                 f"to the number of convolution layers n_conv_layers "
-                                 f"or be an integer")
+                raise ValueError("The length of the field must be equal "
+                                 "to the number of convolution layers n_conv_layers "
+                                 "or be an integer" % k)
             if not isinstance(v, cols.Iterable):
                 params[k] = n_conv_layers * [v]
         return params
