@@ -4,11 +4,10 @@ import collections as cols
 
 from .wrappers import define_scope
 
-# TODO: add L2-regularization
-# TODO: add possibility to change an optimization method
-
 
 class ConvPoolDropReLUAffineDropAffineSoftmax(object):
+
+    PLACEHOLDERS = ['keep_prob']
 
     def __init__(self, data, labels, input_HWC: tuple,
                  n_classes: int, n_conv_layers: int,
@@ -62,8 +61,8 @@ class ConvPoolDropReLUAffineDropAffineSoftmax(object):
     @define_scope
     def accuracy(self):
 
-        mistakes = tf.equal(self.labels, tf.argmax(self.prediction, 1))
-        return tf.reduce_mean(tf.cast(mistakes, tf.float32), name='out')
+        correct = tf.equal(self.labels, tf.argmax(self.prediction, 1))
+        return tf.reduce_mean(tf.cast(correct, tf.float32), name='out')
 
     def _get_and_check_filter_params(self, n_conv_layers: int, filter_params: dict):
         params = filter_params.copy()
@@ -80,6 +79,10 @@ class ConvPoolDropReLUAffineDropAffineSoftmax(object):
     def _get_and_check_pool_params(self, n_conv_layers: int, pool_params: dict):
 
         params = pool_params.copy()
+
+        if 'padding' not in params.keys():
+            params['padding'] = 'valid'
+
         for k, v in pool_params.items():
             if k != "padding":
                 if isinstance(v, cols.Iterable) and len(v) != n_conv_layers and len(v) > 1:
@@ -92,7 +95,7 @@ class ConvPoolDropReLUAffineDropAffineSoftmax(object):
 
     def _add_conv_layers(self, X, n_conv_layers: int, n_channels: int,
                          filter_params: dict, pool_params: dict):
-        """[conv-relu-pool-drop]xN"""
+
         a_prev = X
         for l, n, sz, s, pool_sz, pool_s in zip(range(n_conv_layers),
                                                 filter_params['n'],

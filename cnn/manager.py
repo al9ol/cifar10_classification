@@ -13,18 +13,22 @@ from . import abstract_model as amdl
 
 class Manager(object):
 
-    def __init__(self, params_as_placeholders, len_accuracy_queue=5):
+    def __init__(self, ModelClass, params_as_placeholders=None, len_accuracy_queue=5):
 
-        self.placeholder_names = []
+        self.ModelClass = ModelClass
 
         if params_as_placeholders is not None:
             self.params_as_placeholders = params_as_placeholders
+
+        elif hasattr(ModelClass, 'PLACEHOLDERS'):
+            self.params_as_placeholders = ModelClass.PLACEHOLDERS
+
         else:
             self.params_as_placeholders = []
 
         self._val_accuracy_queue = queue.Queue(len_accuracy_queue)
 
-    def create_model(self, ModelClass, HWC, **model_params):
+    def create_model(self, HWC, **model_params):
 
         if hasattr(self, 'sess'):
             self.sess.close()
@@ -37,7 +41,7 @@ class Manager(object):
         self.model_params = copy.deepcopy(model_params)
         self._define_placeholders()
 
-        self.model = ModelClass(self.data, self.labels, **self.model_params)
+        self.model = self.ModelClass(self.data, self.labels, **self.model_params)
 
         self.sess = tf.Session()
         self.sess.run(tf.global_variables_initializer())
@@ -47,8 +51,8 @@ class Manager(object):
         for ph in self.params_as_placeholders:
             if ph in self.model_params.keys():
 
-                if ph not in self.placeholder_names:
-                    self.placeholder_names.append(ph)
+                if ph not in self.params_as_placeholders:
+                    self.params_as_placeholders.append(ph)
 
                 setattr(self, ph + '_val', self.model_params[ph])
                 setattr(self, ph, tf.placeholder(tf.float32, name=ph))
@@ -58,11 +62,23 @@ class Manager(object):
 
         feed_dict = {self.data: X, self.labels: y}
 
-        for ph in self.placeholder_names:
-            if mode == 'test' and ph == 'keep_prob':
-                feed_dict[self.keep_prob] = 1.0
+        for ph in self.params_as_placeholders:
+
+            if mode == 'test':
+
+                if ph == 'keep_prob':
+                    feed_dict[self.keep_prob] = 1.0
+
+                if ph == 'is_training':
+                    feed_dict[self.is_training] = False
+
             else:
-                feed_dict[getattr(self, ph)] = getattr(self, ph + '_val')
+
+                if ph == 'keep_prob':
+                    feed_dict[self.keep_prob] = self.keep_prob_val
+
+                if ph == 'is_training':
+                    feed_dict[self.is_training] = True
 
         return feed_dict
 
@@ -96,14 +112,17 @@ class Manager(object):
                 X_batch = X[indices[batch_slice]]
                 y_batch = y[indices[batch_slice]]
 
-                self.sess.run(self.model.optimize, self._get_feed_dict(X_batch, y_batch, 'train'))
+                self.sess.run(self.model.optimize,
+                              self._get_feed_dict(X_batch, y_batch, 'train'))
 
                 if tensorboard_logdir is not None:
-                    batch_acc = self.sess.run(self.model.accuracy, self._get_feed_dict(X_batch, y_batch, 'test'))
+                    batch_acc = self.sess.run(self.model.accuracy,
+                                              self._get_feed_dict(X_batch, y_batch, 'test'))
                     train_acc.append(batch_acc)
 
                 if verbose and i_batch % print_train_acc_every_batch == 0:
-                    batch_accuracy = self.sess.run(self.model.accuracy, self._get_feed_dict(X_batch, y_batch, 'test'))
+                    batch_accuracy = self.sess.run(self.model.accuracy,
+                                                   self._get_feed_dict(X_batch, y_batch, 'test'))
                     print("\tbatch: %s \taccuracy: %s" % (i_batch, batch_accuracy))
 
             if save_model_every_epoch > 0 and i_epoch % save_model_every_epoch == 0:
@@ -111,14 +130,17 @@ class Manager(object):
                 self.save_model(folder, "model", yaml_placeholders_fname)
 
             if tensorboard_logdir is not None:
-                val_summ = self.sess.run(val_summary, self._get_feed_dict(X_val, y_val, 'test'))
+                val_summ = self.sess.run(val_summary,
+                                         self._get_feed_dict(X_val, y_val, 'test'))
                 tf_writer.add_summary(val_summ, i_epoch)
 
                 train_summary = tf.Summary()
-                train_summary.value.add(tag="Avg batch accuracy", simple_value=np.mean(train_acc))
+                train_summary.value.add(tag="Avg batch accuracy",
+                                        simple_value=np.mean(train_acc))
                 tf_writer.add_summary(train_summary, i_epoch)
 
-            accuracy = self.sess.run(self.model.accuracy, self._get_feed_dict(X_val, y_val, 'test'))
+            accuracy = self.sess.run(self.model.accuracy,
+                                     self._get_feed_dict(X_val, y_val, 'test'))
 
             if self._val_accuracy_queue.full():
                 _ = self._val_accuracy_queue.get()
@@ -176,7 +198,7 @@ class Manager(object):
     def _save_placeholders(self, dir, yaml_fname):
 
         params_to_save = {}
-        for th in self.placeholder_names:
+        for th in self.params_as_placeholders:
             params_to_save[th] = getattr(self, th + "_val")
 
         full_fname = os.path.join(dir, yaml_fname)
@@ -202,8 +224,8 @@ class Manager(object):
                     setattr(self, k, graph.get_tensor_by_name(k + ":0"))
                     setattr(self, k + "_val", v)
 
-                    if k not in self.placeholder_names:
-                        self.placeholder_names.append(k)
+                    if k not in self.params_as_placeholders:
+                        self.params_as_placeholders.append(k)
 
     def __del__(self):
 
